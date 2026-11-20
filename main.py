@@ -1,13 +1,3 @@
-from fastapi import FastAPI
+from application import create_app
 
-app = FastAPI()
-
-
-@app.get("/")
-def home():
-    return {"message": "Hello from Piazza API"}
-
-
-@app.get("/health")
-def health():
-    return {"status": "ok"}
+app = create_app()

@@ -6,4 +6,19 @@
 - Initial requirements,gitignore & dockerignore files
 - Sources: Wek 5&6 Course material
 
-## 
+## Nov 19
+- In additiont to access_token, successful login should also return refresh_token and expires_at
+- Database should be read from the volume rather than known file path
+- Hash password before storing it
+- Foreign keys in mathing posts/comments/reactions to users
+- Topics will be prepopulated in the database because they are fixed
+- created_at: Unix timestamp, so that the caller can display it in the local timestamp, compared to sending it in server's timestamp
+- post status stored as an int to save space, then int enum used to decode it to string for clients
+- No reactions on comments themselves
+- Stripped down details of a user to be appended in Posts and Comments responses: UserSimple
+- Seeding the default topics during application startup if they don't already exist in the DB, Can we feed this through the config file?  raise the same exception to terminate startup if issues seeding
+- One-to-Many (e.g., User → Posts) foreign key
+- we store topics as actual values to reduce query times by avoiding joining
+-  increase or decrease this like and dislike counts in a transction but store value in posts table to reduce joins
+- likes & dislikes tables: Ensure a combination of author_id x post_id is unique by marking the two fields as primary keys
+- 

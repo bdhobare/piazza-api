@@ -1,0 +1,62 @@
+from sqlalchemy import Column, Integer, String, ForeignKey,JSON, BigInteger, UniqueConstraint
+from sqlalchemy.orm import relationship
+
+import time
+
+from database import Base
+import schemas
+
+
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    name = Column(String, nullable=False)
+
+    email = Column(String, unique=True, index=True, nullable=False)
+
+    hashed_password = Column(String, nullable=False)
+
+    posts: list[Post] = relationship(back_populates="author")
+
+class Topic(Base):
+    __tablename__ = "topics"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String, nullable=False, unique=True)
+
+class Post(Base):
+    __tablename__ = "posts"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    author_id: int = Column(Integer, ForeignKey("users.id"))
+    body = Column(String, nullable=False)
+    topics:list[str] = Column(JSON, default=list) # we store topics as actual values to reduce query times by avoiding joining
+    status: schemas.PostStatus = Column(Integer, default=schemas.PostStatus.Live) # posts are live when they are created
+    like_count: int = Column(Integer) # We will increase or decrease this value in a transaction
+    dislike_count:int = Column(Integer)
+    created_at: int = Column(BigInteger, default=lambda: int(time.time()))
+    expires_at: int = Column(BigInteger)
+
+    author: User = relationship(back_populates="posts")
+
+class Comment(Base):
+    __tablename__ = "comments"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    author_id: int = Column(Integer, ForeignKey("users.id"))
+    post_id: int = Column(Integer, ForeignKey("posts.id"))
+    content = Column(String, nullable=False)
+    created_at: int = Column(BigInteger, default=lambda: int(time.time()))
+
+class Likes(Base):
+    __tablename__ = "likes"
+    # Ensure a combination of author_id x post_id is unique by marking the two fields as primary keys
+    author_id: int = Column(Integer, ForeignKey("users.id"), primary_key=True)
+    post_id: int = Column(Integer, ForeignKey("posts.id"), primary_key=True)
+    created_at: int = Column(BigInteger, default=lambda: int(time.time()))
+
+
+class Dislikes(Base):
+    __tablename__ = "dislikes"
+    author_id: int = Column(Integer, ForeignKey("users.id"), primary_key=True)
+    post_id: int = Column(Integer, ForeignKey("posts.id"), primary_key=True)
+    created_at: int = Column(BigInteger, default=lambda: int(time.time()))
+    

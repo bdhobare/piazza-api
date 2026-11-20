@@ -31,15 +31,28 @@ python -m pip install -r requirements.txt
 ```
 cp -i .env.example .env
 ```
-4. Run the app:
+4. Generate a secret
+```
+python -c "import secrets; print(secrets.token_hex(32))"
+```
+5. On macOS/Linux:
+```
+export JWT_SECRET="paste-your-generated-value-here"
+```
+On Windows PowerShell:
+```
+$env:JWT_SECRET = "paste-your-generated-value-here"
+```
+Keep the value private and reuse it after restarting the terminal.
+6. Run the app:
 ```
 uvicorn main:app --reload
 ```
-5. Open FastAPI docs:
+7. Open FastAPI docs:
 
 http://127.0.0.1:8000/docs
 
-6. Type Ctrl+C to stop the server.
+8. Type Ctrl+C to stop the server.
 
 ## Running tests
 ```
