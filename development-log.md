@@ -21,4 +21,9 @@
 - we store topics as actual values to reduce query times by avoiding joining
 -  increase or decrease this like and dislike counts in a transction but store value in posts table to reduce joins
 - likes & dislikes tables: Ensure a combination of author_id x post_id is unique by marking the two fields as primary keys
-- 
+
+# Nov 21
+- Remove topic strings from posts table: we can retrieve the strings when fetching data. This allow us to normalize the data better and avoid wrong id-name matching of topics.
+- Send topics as a list of strings, validation happens on server before inserting into post->topics table.
+- Topic and status can be passed as optionals query params: /posts?topic=Tech&status=1
+- TODO: Add returning of comments with posts

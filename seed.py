@@ -21,11 +21,11 @@ def seed_topics(db: Session = Depends(get_db)):
     '''
     We fetch existing topics in the DB and insert missing ones
     '''
-    existing_names = set(Session.scalars(select(models.Topic.name)).all())
+    existing_names = set(db.scalars(select(models.Topic.name)).all())
     new_topics = [
         models.Topic(name=name) for name in DEFAULT_TOPICS if name not in existing_names
     ]
-    Session.add_all(new_topics)
+    db.add_all(new_topics)
     try:
         db.commit()
     except IntegrityError:

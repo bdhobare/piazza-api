@@ -28,11 +28,11 @@ class Post(Base):
     __tablename__ = "posts"
     id = Column(Integer, primary_key=True, autoincrement=True)
     author_id: int = Column(Integer, ForeignKey("users.id"))
+    title = Column(String, nullable=False)
     body = Column(String, nullable=False)
-    topics:list[str] = Column(JSON, default=list) # we store topics as actual values to reduce query times by avoiding joining
     status: schemas.PostStatus = Column(Integer, default=schemas.PostStatus.Live) # posts are live when they are created
-    like_count: int = Column(Integer) # We will increase or decrease this value in a transaction
-    dislike_count:int = Column(Integer)
+    like_count: int = Column(Integer, default=0) # We will increase or decrease this value in a transaction
+    dislike_count:int = Column(Integer, default=0)
     created_at: int = Column(BigInteger, default=lambda: int(time.time()))
     expires_at: int = Column(BigInteger)
 
@@ -58,5 +58,11 @@ class Dislikes(Base):
     __tablename__ = "dislikes"
     author_id: int = Column(Integer, ForeignKey("users.id"), primary_key=True)
     post_id: int = Column(Integer, ForeignKey("posts.id"), primary_key=True)
+    created_at: int = Column(BigInteger, default=lambda: int(time.time()))
+
+class PostTopics(Base):
+    __tablename__ = "post_topics"
+    post_id: int = Column(Integer, ForeignKey("posts.id"), primary_key=True)
+    topic_id: int = Column(Integer, ForeignKey("topics.id"), primary_key=True)
     created_at: int = Column(BigInteger, default=lambda: int(time.time()))
     

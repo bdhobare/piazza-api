@@ -50,7 +50,7 @@ class PostResponse(BaseModel):
     author: UserSimple
     title: str = Field(min_length=1, max_length=100)
     body: str = Field(min_length=1)
-    topics: list[str]  = Field(min_length=1) # Topic names will be filled in as strings
+    topics: set[str]  = Field(min_length=1) # Topic names will be filled in as strings
     created_at: datetime # Unix timestamp, so that the caller can display it in the local timestamp
     expires_at: datetime
     status: PostStatus
@@ -59,4 +59,8 @@ class PostResponse(BaseModel):
     comments: list[CommentResponse]
 
 
-
+class PostCreate(BaseModel):
+    title: str = Field(min_length=1, max_length=100)
+    body: str = Field(min_length=1)
+    topics: list[str]  = Field(min_length=1)
+    expires_at: datetime
