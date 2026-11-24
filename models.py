@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey,JSON, BigInteger, UniqueConstraint
+from sqlalchemy import CheckConstraint, Column, Integer, String, ForeignKey,JSON, BigInteger, UniqueConstraint
 from sqlalchemy.orm import relationship
 
 import time
@@ -46,19 +46,14 @@ class Comment(Base):
     content = Column(String, nullable=False)
     created_at: int = Column(BigInteger, default=lambda: int(time.time()))
 
-class Likes(Base):
-    __tablename__ = "likes"
+class Reaction(Base):
+    __tablename__ = "reactions"
     # Ensure a combination of author_id x post_id is unique by marking the two fields as primary keys
     author_id: int = Column(Integer, ForeignKey("users.id"), primary_key=True)
     post_id: int = Column(Integer, ForeignKey("posts.id"), primary_key=True)
-    created_at: int = Column(BigInteger, default=lambda: int(time.time()))
+    reaction = Column(String, CheckConstraint("reaction IN ('like', 'dislike')")) # prevent invalid values from being inserted into the database
+    updated_at: int = Column(BigInteger, default=lambda: int(time.time()))
 
-
-class Dislikes(Base):
-    __tablename__ = "dislikes"
-    author_id: int = Column(Integer, ForeignKey("users.id"), primary_key=True)
-    post_id: int = Column(Integer, ForeignKey("posts.id"), primary_key=True)
-    created_at: int = Column(BigInteger, default=lambda: int(time.time()))
 
 class PostTopics(Base):
     __tablename__ = "post_topics"

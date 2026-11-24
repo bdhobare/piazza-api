@@ -1,6 +1,6 @@
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 from datetime import datetime
-from enum import IntEnum
+from enum import IntEnum, StrEnum
 
 
 class UserCreate(BaseModel):
@@ -30,7 +30,11 @@ class TopicResponse(BaseModel): # Topics will be prepopulated in the database
 class PostStatus(IntEnum):
     Expired = 0
     Live = 1
-    
+
+class Reaction(StrEnum):
+    Dislike = "dislike"
+    Like = "like"
+
 class UserSimple(BaseModel):
   '''
   Stripped down details of a user to be appended in Posts and Comments responses
@@ -64,3 +68,12 @@ class PostCreate(BaseModel):
     body: str = Field(min_length=1)
     topics: list[str]  = Field(min_length=1)
     expires_at: datetime
+
+class ReactionCreate(BaseModel):
+    value: Reaction
+
+class ReactionResponse(BaseModel):
+    post_id: int
+    likes: int
+    dislikes: int
+    updated_at: datetime
