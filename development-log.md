@@ -41,4 +41,8 @@
 - Change the post status to string to make comparison and API uniform
 - Fix missing check to block authors reacting to their posts
 - Change timestamps from Unix to AwareDateTime to store all timestamps in UTC
-- Check all expiry timestamps are in the future
+
+## Nov 25
+- Add most-liked endpoint
+- Remove the UserSimple class and use UserResponse directly. This is to reduce the data manipulation needed after query responses.
+- 

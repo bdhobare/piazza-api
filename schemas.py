@@ -1,6 +1,6 @@
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, AwareDatetime
 from datetime import datetime, timezone
-from enum import IntEnum, StrEnum
+from enum import StrEnum
 
 
 class UserCreate(BaseModel):
@@ -33,22 +33,17 @@ class PostStatus(StrEnum):
 class Reaction(StrEnum):
     Dislike = "dislike"
     Like = "like"
-class UserSimple(BaseModel):
-  '''
-  Stripped down details of a user to be appended in Posts and Comments responses
-  '''
-  id: int
-  name: str
+
 class CommentResponse(BaseModel):
     id: int
-    author: UserSimple
+    author: UserResponse
     post_id: int
-    content: str = Field(min_length=3)
+    body: str = Field(min_length=3)
     created_at: AwareDatetime
 
 class PostResponse(BaseModel):
     id: int
-    author: UserSimple
+    author: UserResponse
     title: str = Field(min_length=1, max_length=100)
     body: str = Field(min_length=1)
     topics: set[str]  = Field(min_length=1) # Topic names will be filled in as strings
@@ -75,4 +70,4 @@ class ReactionResponse(BaseModel):
     updated_at: AwareDatetime
 
 class CommentCreate(BaseModel):
-    content: str = Field(min_length=3)
+    body: str = Field(min_length=3)

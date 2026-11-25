@@ -1,12 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload, selectinload
-from sqlalchemy import select, or_
+from sqlalchemy import select
 from datetime import datetime, timezone
 
 import models
 import schemas
-import time
 from security import get_current_user
 from database import get_db
 
@@ -50,9 +48,10 @@ def create_post(request: models.PostCreate, current_user: models.User = Depends(
         db.add_all(post_topics)
         return schemas.PostResponse(
             id=post.id,
-            author = schemas.UserSimple(
+            author = schemas.UserResponse(
                 id = current_user.id,
-                name = current_user.name
+                name = current_user.name,
+                email = current_user.email
             ),
             title=post.title,
             body = post.body,
@@ -65,7 +64,7 @@ def create_post(request: models.PostCreate, current_user: models.User = Depends(
             comments = [] # A new post has zero comments.
         )
 
-@router.get("/", response_model=list[schemas.PostResponse])
+@router.get("/", response_model=list[schemas.PostResponse], status_code=200)
 def get_posts(
     topic: str | None = None,
     status: models.PostStatus | None = None,
@@ -91,7 +90,7 @@ def get_posts(
 
     return db.scalars(query).all()
 
-@router.get("/{post_id}", response_model=schemas.PostResponse)
+@router.get("/{post_id}", response_model=schemas.PostResponse, status_code=200)
 def get_post(post_id: int, db: Session = Depends(get_db)):
     query = (
         select(models.Post)
@@ -112,7 +111,7 @@ def get_post(post_id: int, db: Session = Depends(get_db)):
 
     return post
 
-@router.put("/{post_id}/reaction", response_model=schemas.ReactionResponse)
+@router.put("/{post_id}/reaction", response_model=schemas.ReactionResponse, status_code=200)
 def put_reaction(post_id: int, request: schemas.ReactionCreate, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
     '''
     Set or replace the current user’s reaction on a post
@@ -188,3 +187,39 @@ def put_reaction(post_id: int, request: schemas.ReactionCreate, current_user: mo
         updated_at=existing_reaction.updated_at
     )
 
+@router.post("/{post_id}/comments", response_model=schemas.CommentResponse, status_code=201)
+def post_comment(post_id: int, request: schemas.CommentCreate, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    '''
+    Add a comment to a post that is not Expired.
+    '''
+    # Get the post and check status
+    post = db.query(models.Post).filter(models.Post.id == post_id).first()
+    
+    if post is not None:
+        raise HTTPException(status_code=404, detail="Post does not exist.")
+    if post.status ==  schemas.PostStatus.Expired:
+        raise HTTPException(status_code=409, detail="Post is expired.")
+    # Determine if post is expired based on the current timestamp
+    if datetime.now(timezone.utc) >= post.expires_at:
+        post.status = schemas.PostStatus.Expired
+        db.commit()
+        raise HTTPException(status_code=409, detail="Post is expired.")
+    
+    comment = models.Comment(
+        author_id=current_user.id,
+        post_id=post_id,
+        body=request.body,
+    )
+    db.add(comment)
+    db.commit()
+    return schemas.CommentResponse(
+        id=comment.id,
+        author=schemas.UserResponse(
+            id=current_user.id,
+            name=current_user.name,
+            email=current_user.email
+        ),
+        post_id=post_id,
+        body=comment.body,
+        created_at=comment.created_at
+    )

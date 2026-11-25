@@ -2,7 +2,6 @@ from sqlalchemy import CheckConstraint, Column, Integer, String, ForeignKey,JSON
 from sqlalchemy.orm import relationship
 from datetime import datetime, timezone
 
-import time
 
 from database import Base
 import schemas
@@ -13,11 +12,8 @@ class User(Base):
 
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     name = Column(String, nullable=False)
-
     email = Column(String, unique=True, index=True, nullable=False)
-
     hashed_password = Column(String, nullable=False)
-
     posts: list[Post] = relationship(back_populates="author")
 
 class Topic(Base):
@@ -44,7 +40,7 @@ class Comment(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     author_id: int = Column(Integer, ForeignKey("users.id"))
     post_id: int = Column(Integer, ForeignKey("posts.id"))
-    content = Column(String, nullable=False)
+    body = Column(String, nullable=False)
     created_at: int = Column(BigInteger, default=lambda: datetime.now(timezone.utc).timestamp())
 
 class Reaction(Base):
