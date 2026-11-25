@@ -1,5 +1,6 @@
 from sqlalchemy import CheckConstraint, Column, Integer, String, ForeignKey,JSON, BigInteger, UniqueConstraint
 from sqlalchemy.orm import relationship
+from datetime import datetime, timezone
 
 import time
 
@@ -30,11 +31,11 @@ class Post(Base):
     author_id: int = Column(Integer, ForeignKey("users.id"))
     title = Column(String, nullable=False)
     body = Column(String, nullable=False)
-    status: schemas.PostStatus = Column(Integer, default=schemas.PostStatus.Live) # posts are live when they are created
+    status: schemas.PostStatus = Column(String, default=schemas.PostStatus.Live) # posts are live when they are created
     like_count: int = Column(Integer, default=0) # We will increase or decrease this value in a transaction
     dislike_count:int = Column(Integer, default=0)
-    created_at: int = Column(BigInteger, default=lambda: int(time.time()))
-    expires_at: int = Column(BigInteger)
+    created_at: int = Column(BigInteger, default=lambda: datetime.now(timezone.utc).timestamp())
+    expires_at: int = Column(BigInteger, nullable=False)
 
     author: User = relationship(back_populates="posts")
 
@@ -44,7 +45,7 @@ class Comment(Base):
     author_id: int = Column(Integer, ForeignKey("users.id"))
     post_id: int = Column(Integer, ForeignKey("posts.id"))
     content = Column(String, nullable=False)
-    created_at: int = Column(BigInteger, default=lambda: int(time.time()))
+    created_at: int = Column(BigInteger, default=lambda: datetime.now(timezone.utc).timestamp())
 
 class Reaction(Base):
     __tablename__ = "reactions"
@@ -52,12 +53,12 @@ class Reaction(Base):
     author_id: int = Column(Integer, ForeignKey("users.id"), primary_key=True)
     post_id: int = Column(Integer, ForeignKey("posts.id"), primary_key=True)
     reaction = Column(String, CheckConstraint("reaction IN ('like', 'dislike')")) # prevent invalid values from being inserted into the database
-    updated_at: int = Column(BigInteger, default=lambda: int(time.time()))
+    updated_at: int = Column(BigInteger, default=lambda: datetime.now(timezone.utc).timestamp())
 
 
 class PostTopics(Base):
     __tablename__ = "post_topics"
     post_id: int = Column(Integer, ForeignKey("posts.id"), primary_key=True)
     topic_id: int = Column(Integer, ForeignKey("topics.id"), primary_key=True)
-    created_at: int = Column(BigInteger, default=lambda: int(time.time()))
+    created_at: int = Column(BigInteger, default=lambda: datetime.now(timezone.utc).timestamp())
     

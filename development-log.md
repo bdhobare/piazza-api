@@ -28,9 +28,17 @@
 - Topic and status can be passed as optionals query params: /posts?topic=Tech&status=1
 - TODO: Add returning of comments with posts
 
-# Nov 23/24
+##  Nov 23/24
 - Implemented the put reaction endpoint.
 - When putting a reactinon, also update the status of the post if it has expired, making next checks faster.
 - We store reaction value as  "like"/"dislike".
 - We add a constraint to prevent invalid values from being inserted into the database
 - Add updated_at to the reaction table to track when the reaction was made/updated
+
+## Nov 25
+- Unify all timestamps in UTC
+- Fix missing filtering logic on status in GET /posts endpoint
+- Change the post status to string to make comparison and API uniform
+- Fix missing check to block authors reacting to their posts
+- Change timestamps from Unix to AwareDateTime to store all timestamps in UTC
+- Check all expiry timestamps are in the future

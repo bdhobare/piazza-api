@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload, selectinload
-from sqlalchemy import select
+from sqlalchemy import select, or_
+from datetime import datetime, timezone
 
 import models
 import schemas
@@ -35,10 +36,9 @@ def create_post(request: models.PostCreate, current_user: models.User = Depends(
             author_id = current_user.id,
             title = request.title,
             body = request.body,
-            status = schemas.PostStatus.Live,
             like_count = 0,
             dislike_count = 0,
-            expires_at = request.expires_at
+            expires_at = request.expires_at.astimezone(timezone.utc)
         )
         db.add(post)
         db.flush() # Retrieves the post.id for use in post_topics
@@ -72,13 +72,23 @@ def get_posts(
     db: Session = Depends(get_db)
 ):
     '''
-    Get all posts. Topic and status can be passed as optional query params: /posts?topic=Tech&status=1
+    Get all posts. Topic and status can be passed as optional query params: /posts?topic=Tech&status=Expired
     '''
+    now_utc = datetime.now(timezone.utc).timestamp()
     query = select(models.Post)
     if topic is not None:
         query = query.join(models.Post.topics).where(models.Topic.name == topic)
-    if status is not None:
-        query = query.where(models.Post.status == status.value)
+    if status is None:
+        return db.scalars(query).all()
+    if status not in models.PostStatus:
+        raise HTTPException(status_code=400, detail=f"Invalid status: {status}")
+    if status == models.PostStatus.Expired:
+        # Expired posts are those expires_at has passed
+        query = query.where(now_utc >= models.Post.expires_at)
+    else:
+        # Live posts are those that expires_at has not passed.
+        query = query.where(now_utc < models.Post.expires_at)
+
     return db.scalars(query).all()
 
 @router.get("/{post_id}", response_model=schemas.PostResponse)
@@ -102,7 +112,6 @@ def get_post(post_id: int, db: Session = Depends(get_db)):
 
     return post
 
-
 @router.put("/{post_id}/reaction", response_model=schemas.ReactionResponse)
 def put_reaction(post_id: int, request: schemas.ReactionCreate, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
     '''
@@ -116,10 +125,13 @@ def put_reaction(post_id: int, request: schemas.ReactionCreate, current_user: mo
     if post.status ==  schemas.PostStatus.Expired:
         raise HTTPException(status_code=409, detail="Post is expired.")
     # Determine if post is expired based on the current timestamp
-    if time.time() >= post.expires_at:
+    if datetime.now(timezone.utc) >= post.expires_at:
         post.status = schemas.PostStatus.Expired
         db.commit()
         raise HTTPException(status_code=409, detail="Post is expired.")
+    # Authors cannot like or dislike their own posts.
+    if post.author_id == current_user.id:
+        raise HTTPException(status_code=403, detail="Authors cannot like or dislike their own posts.")
     # Get the reaction type, check if the user has already reacted, and update the counts accordingly
     existing_reaction = db.query(models.Reaction).filter(
         models.Reaction.post_id == post_id,
@@ -131,8 +143,7 @@ def put_reaction(post_id: int, request: schemas.ReactionCreate, current_user: mo
         new_reaction = models.Reaction(
             author_id=current_user.id,
             post_id=post_id,
-            reaction=request.value,
-            updated_at=int(time.time())
+            reaction=request.value
         )
         db.add(new_reaction)
         # Update the counts based on the new reaction
@@ -148,7 +159,6 @@ def put_reaction(post_id: int, request: schemas.ReactionCreate, current_user: mo
             updated_at=new_reaction.updated_at
         )
 
-    # user has already reacted, we need to update the counts accordingly
     if existing_reaction.reaction == request.value:
         # user is trying to set the same reaction, return the existing reaction
         return schemas.ReactionResponse(
@@ -164,7 +174,7 @@ def put_reaction(post_id: int, request: schemas.ReactionCreate, current_user: mo
         post.dislike_count -= 1
     # Update the existing reaction to the new value
     existing_reaction.reaction = request.value
-    existing_reaction.updated_at = int(time.time())
+    existing_reaction.updated_at = int(datetime.now(timezone.utc).timestamp())
     # Update the counts based on the new reaction
     if request.value == schemas.Reaction.Like:
         post.like_count += 1
@@ -177,3 +187,4 @@ def put_reaction(post_id: int, request: schemas.ReactionCreate, current_user: mo
         dislikes=post.dislike_count,
         updated_at=existing_reaction.updated_at
     )
+
