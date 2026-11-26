@@ -54,3 +54,14 @@
 - Fix GET /posts logic and add each post's comments in the response
 - Fix GET /posts/{post_id} logic to add the comments
 
+## Nov 26 - Manual debugging using /docs
+- Remove transaction in POST /posts. The session already has a transaction open (get_current_user queried through it) so we commit/rollback explicitly instead of using db.begin().
+- Fix missing relatioships in the models
+- Fix issue when inserting into PostTopics where we were passing the object instead of the id
+- Fix different timestamp formats in different routes to timezeone-aware timestamp
+- Post no longer has a topics column, so I added a read-only topics property that reads topic names through post_topics
+- Minor bugs in get_post calling first() on a single post
+- Minor if statement bug in comment and reaction routes rejecting every post with 404
+- Field(gt=datetime.now(...)), was being is evaluated once at import(server start time), fix it to be evaluated on every request
+
+

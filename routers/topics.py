@@ -20,7 +20,7 @@ def get_most_active_post(topic: str, _: models.User = Depends(get_current_user),
     if topic_obj is None:
         raise HTTPException(status_code=422, detail=f"Topic '{topic}' not found")
     
-    now_utc = datetime.now(timezone.utc).timestamp()
+    now_utc = datetime.now(timezone.utc)
     post = db.scalars(
         select(models.Post)
         .join(models.PostTopics)

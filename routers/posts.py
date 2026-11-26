@@ -23,18 +23,18 @@ def create_post(request: schemas.PostCreate, current_user: models.User = Depends
             raise HTTPException(status_code=422, detail="Topic names cannot be empty or whitespace.")
     # Remove duplicated topic names
     request_topics = set(request.topics)
-    with db.begin():
+    try:
         topics = db.scalars(
             select(models.Topic).where(models.Topic.name.in_(request_topics))
         ).all()
-        # Check that all topic names sent exist in the server
+        # Check that all topic names sent exist in the database
         if len(topics) != len(request_topics):
             found_names = {t.name for t in topics}
             missing = request_topics - found_names
             raise HTTPException(
                 status_code=422,
                 detail=f"Invalid topics: {sorted(missing)}",
-        )
+            )
         post = models.Post(
             author_id = current_user.id,
             title = request.title,
@@ -45,29 +45,34 @@ def create_post(request: schemas.PostCreate, current_user: models.User = Depends
         )
         db.add(post)
         db.flush() # Retrieves the post.id for use in post_topics
-        
+
         post_topics = [
-            models.PostTopics(post_id=post.id, topic_id=topic_id)
-            for topic_id in topics
+            models.PostTopics(post_id=post.id, topic_id=topic.id)
+            for topic in topics
         ]
         db.add_all(post_topics)
-        return schemas.PostResponse(
-            id=post.id,
-            author = schemas.UserResponse(
-                id = current_user.id,
-                name = current_user.name,
-                email = current_user.email
-            ),
-            title=post.title,
-            body = post.body,
-            topics=request.topics,
-            created_at=post.created_at,
-            expires_at=post.expires_at,
-            status = post.status,
-            like_count = post.like_count,
-            dislike_count = post.dislike_count,
-            comments = [] # A new post has zero comments.
-        )
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+
+    return schemas.PostResponse(
+        id=post.id,
+        author = schemas.UserResponse(
+            id = current_user.id,
+            name = current_user.name,
+            email = current_user.email
+        ),
+        title=post.title,
+        body = post.body,
+        topics=request.topics,
+        created_at=post.created_at,
+        expires_at=post.expires_at,
+        status = post.status,
+        like_count = post.like_count,
+        dislike_count = post.dislike_count,
+        comments = [] # A new post has zero comments.
+    )
 
 @router.get("/", response_model=list[schemas.PostResponse], status_code=200)
 def get_posts(
@@ -91,7 +96,7 @@ def get_posts(
         if topic_obj is None:
             raise HTTPException(status_code=422, detail=f"Topic '{topic}' not found")
     
-    now_utc = datetime.now(timezone.utc).timestamp()
+    now_utc = datetime.now(timezone.utc)
     query = select(models.Post)
     if topic:
         query = query.join(models.PostTopics).join(models.Topic).where(models.Topic.name == topic)
@@ -146,7 +151,7 @@ def get_post(post_id: int, _: models.User = Depends(get_current_user), db: Sessi
     Get a single post by its ID, including its comments.
     '''
     query = select(models.Post).where(models.Post.id == post_id)
-    post = db.scalar(query).first()
+    post = db.scalar(query)
     if post is None:
         raise HTTPException(
             status_code=404,
@@ -195,7 +200,7 @@ def put_reaction(post_id: int, request: schemas.ReactionCreate, current_user: mo
     # Get the post and check status
     post = db.query(models.Post).filter(models.Post.id == post_id).first()
     
-    if post is not None:
+    if post is None:
         raise HTTPException(status_code=404, detail="Post does not exist.")
     if post.status ==  schemas.PostStatus.Expired:
         raise HTTPException(status_code=409, detail="Post is expired.")
@@ -249,7 +254,7 @@ def put_reaction(post_id: int, request: schemas.ReactionCreate, current_user: mo
         post.dislike_count -= 1
     # Update the existing reaction to the new value
     existing_reaction.reaction = request.value
-    existing_reaction.updated_at = int(datetime.now(timezone.utc).timestamp())
+    existing_reaction.updated_at = datetime.now(timezone.utc)
     # Update the counts based on the new reaction
     if request.value == schemas.Reaction.Like:
         post.like_count += 1
@@ -271,7 +276,7 @@ def post_comment(post_id: int, request: schemas.CommentCreate, current_user: mod
     # Get the post and check status
     post = db.query(models.Post).filter(models.Post.id == post_id).first()
     
-    if post is not None:
+    if post is None:
         raise HTTPException(status_code=404, detail="Post does not exist.")
     if post.status ==  schemas.PostStatus.Expired:
         raise HTTPException(status_code=409, detail="Post is expired.")

@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, AwareDatetime
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, AwareDatetime, field_validator
 from datetime import datetime, timezone
 from enum import StrEnum
 
@@ -58,7 +58,15 @@ class PostCreate(BaseModel):
     title: str = Field(min_length=1, max_length=100)
     body: str = Field(min_length=1)
     topics: list[str]  = Field(min_length=1)
-    expires_at: AwareDatetime = Field(gt=datetime.now(timezone.utc)) # Expiration time must be in the future
+    expires_at: AwareDatetime # Expiration time must be in the future
+
+    @field_validator("expires_at")
+    @classmethod
+    def expires_at_must_be_future(cls, value: datetime) -> datetime:
+        # Checked per request (not at import time), so the comparison uses the current time.
+        if value <= datetime.now(timezone.utc):
+            raise ValueError("expires_at must be in the future")
+        return value
 
 class ReactionCreate(BaseModel):
     value: Reaction

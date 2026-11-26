@@ -15,7 +15,7 @@ DEFAULT_TOPICS = [
     "Health",
     "Sport",
     "Tech"
-] # TODO: Can we feed this through the config file?
+]
 
 def seed_topics(db: Session = Depends(get_db)):
     '''
