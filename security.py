@@ -38,8 +38,6 @@ def create_access_token(data: dict):
     # Add an expiry time so the token is not valid forever.
     expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     to_encode.update({"exp": expire})
-
-    # Sign and return the JWT.
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
 bearer_scheme = HTTPBearer(auto_error=False)
@@ -52,24 +50,19 @@ def get_current_user(
         raise HTTPException(status_code=401, detail="Not authenticated")
 
     token = credentials.credentials
-
     try:
         payload = jwt.decode(
             token, SECRET_KEY, algorithms=[ALGORITHM],
             options={"require": ["exp", "sub"]}
         )
-
         # We stored the user's email in the token subject.
         email = payload.get("sub")
-
         if not isinstance(email, str) or not email:
             raise HTTPException(status_code=401, detail="Invalid token")
-
     except InvalidTokenError:
         raise HTTPException(status_code=401, detail="Invalid token")
 
     user = db.query(models.User).filter(models.User.email == email).first()
-
     if user is None:
         raise HTTPException(status_code=401, detail="User not found")
 

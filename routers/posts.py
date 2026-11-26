@@ -12,10 +12,15 @@ router = APIRouter()
 
 
 @router.post("/", response_model=schemas.PostResponse, status_code=201)
-def create_post(request: models.PostCreate, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+def create_post(request: schemas.PostCreate, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
     '''
     We use a transaction here to ensure inserts into posts and post_topics succeed or fail.
     '''
+    if not request.title.strip() or not request.body.strip():
+        raise HTTPException(status_code=422, detail="Title and body cannot be empty or whitespace.")
+    for topic in request.topics:
+        if not topic.strip():
+            raise HTTPException(status_code=422, detail="Topic names cannot be empty or whitespace.")
     # Remove duplicated topic names
     request_topics = set(request.topics)
     with db.begin():
@@ -27,7 +32,7 @@ def create_post(request: models.PostCreate, current_user: models.User = Depends(
             found_names = {t.name for t in topics}
             missing = request_topics - found_names
             raise HTTPException(
-                status_code=400,
+                status_code=422,
                 detail=f"Invalid topics: {sorted(missing)}",
         )
         post = models.Post(
@@ -55,7 +60,7 @@ def create_post(request: models.PostCreate, current_user: models.User = Depends(
             ),
             title=post.title,
             body = post.body,
-            topics=request_topics,
+            topics=request.topics,
             created_at=post.created_at,
             expires_at=post.expires_at,
             status = post.status,
@@ -67,49 +72,120 @@ def create_post(request: models.PostCreate, current_user: models.User = Depends(
 @router.get("/", response_model=list[schemas.PostResponse], status_code=200)
 def get_posts(
     topic: str | None = None,
-    status: models.PostStatus | None = None,
+    status: schemas.PostStatus | None = None,
+    _: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     '''
     Get all posts. Topic and status can be passed as optional query params: /posts?topic=Tech&status=Expired
     '''
+    if topic and not topic.strip():
+        raise HTTPException(status_code=422, detail="Topic name cannot be whitespace.")
+    if status and status not in schemas.PostStatus:
+        raise HTTPException(status_code=422, detail=f"Invalid status: {status}")
+    # If topic is provided, validate it exists in the database. 
+    if topic:
+        topic_obj = db.scalar(
+            select(models.Topic).where(models.Topic.name == topic)
+        )
+        if topic_obj is None:
+            raise HTTPException(status_code=422, detail=f"Topic '{topic}' not found")
+    
     now_utc = datetime.now(timezone.utc).timestamp()
     query = select(models.Post)
-    if topic is not None:
-        query = query.join(models.Post.topics).where(models.Topic.name == topic)
-    if status is None:
-        return db.scalars(query).all()
-    if status not in models.PostStatus:
-        raise HTTPException(status_code=400, detail=f"Invalid status: {status}")
-    if status == models.PostStatus.Expired:
-        # Expired posts are those expires_at has passed
-        query = query.where(now_utc >= models.Post.expires_at)
-    else:
-        # Live posts are those that expires_at has not passed.
-        query = query.where(now_utc < models.Post.expires_at)
-
-    return db.scalars(query).all()
+    if topic:
+        query = query.join(models.PostTopics).join(models.Topic).where(models.Topic.name == topic)
+    if status:
+        if status == schemas.PostStatus.Expired:
+            query = query.where(now_utc >= models.Post.expires_at)
+        else:
+            query = query.where(now_utc < models.Post.expires_at)
+    
+    posts = db.scalars(query).all()
+    posts_response = []
+    # Fetch comments for each post and build the response
+    for post in posts:
+        comments = db.scalars(
+            select(models.Comment)
+            .where(models.Comment.post_id == post.id)
+            .order_by(models.Comment.created_at.asc())
+        ).all()
+        posts_response.append(schemas.PostResponse(
+            id=post.id,
+            author=schemas.UserResponse(
+                id=post.author.id,
+                name=post.author.name,
+                email=post.author.email
+            ),
+            title=post.title,
+            body=post.body,
+            topics=post.topics,
+            created_at=post.created_at,
+            expires_at=post.expires_at,
+            status=post.status,
+            like_count=post.like_count,
+            dislike_count=post.dislike_count,
+            comments=[schemas.CommentResponse(
+                id=comment.id,
+                author=schemas.UserResponse(
+                    id=comment.author.id,
+                    name=comment.author.name,
+                    email=comment.author.email
+                ),
+                post_id=comment.post_id,
+                body=comment.body,
+                created_at=comment.created_at
+            ) for comment in comments]
+        ))
+        
+    return posts_response
 
 @router.get("/{post_id}", response_model=schemas.PostResponse, status_code=200)
-def get_post(post_id: int, db: Session = Depends(get_db)):
-    query = (
-        select(models.Post)
-        .where(models.Post.id == post_id)
-        .options(
-            joinedload(models.Post.author),
-            selectinload(models.Post.topics),
-            selectinload(models.Post.comments).joinedload(models.Comment.author),
-        )
-    )
-    post = db.scalar(query)
-
+def get_post(post_id: int, _: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    '''
+    Get a single post by its ID, including its comments.
+    '''
+    query = select(models.Post).where(models.Post.id == post_id)
+    post = db.scalar(query).first()
     if post is None:
         raise HTTPException(
             status_code=404,
-            detail=f"Post with id {post_id} not found",
+            detail=f"Post not found",
         )
+    # Get comments for the post
+    comments = db.scalars(
+        select(models.Comment)
+        .where(models.Comment.post_id == post.id)
+        .order_by(models.Comment.created_at.asc())
+    ).all()
 
-    return post
+    return schemas.PostResponse(
+        id=post.id,
+        author=schemas.UserResponse(
+            id=post.author.id,
+            name=post.author.name,
+            email=post.author.email
+        ),
+        title=post.title,
+        body=post.body,
+        topics=post.topics,
+        created_at=post.created_at,
+        expires_at=post.expires_at,
+        status=post.status,
+        like_count=post.like_count,
+        dislike_count=post.dislike_count,
+        comments=[schemas.CommentResponse(
+            id=comment.id,
+            author=schemas.UserResponse(
+                id=comment.author.id,
+                name=comment.author.name,
+                email=comment.author.email
+            ),
+            post_id=comment.post_id,
+            body=comment.body,
+            created_at=comment.created_at
+        ) for comment in comments]
+    )
 
 @router.put("/{post_id}/reaction", response_model=schemas.ReactionResponse, status_code=200)
 def put_reaction(post_id: int, request: schemas.ReactionCreate, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):

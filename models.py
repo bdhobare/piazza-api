@@ -1,4 +1,4 @@
-from sqlalchemy import CheckConstraint, Column, Integer, String, ForeignKey,JSON, BigInteger, UniqueConstraint
+from sqlalchemy import CheckConstraint, Column, Integer, String, ForeignKey, BigInteger
 from sqlalchemy.orm import relationship
 from datetime import datetime, timezone
 
@@ -14,7 +14,6 @@ class User(Base):
     name = Column(String, nullable=False)
     email = Column(String, unique=True, index=True, nullable=False)
     hashed_password = Column(String, nullable=False)
-    posts: list[Post] = relationship(back_populates="author")
 
 class Topic(Base):
     __tablename__ = "topics"
@@ -34,6 +33,9 @@ class Post(Base):
     expires_at: int = Column(BigInteger, nullable=False)
 
     author: User = relationship(back_populates="posts")
+    comments: list[Comment] = relationship(back_populates="post")
+    reactions: list[Reaction] = relationship(back_populates="post")
+    post_topics: list[PostTopics] = relationship(back_populates="post")
 
 class Comment(Base):
     __tablename__ = "comments"
@@ -43,6 +45,8 @@ class Comment(Base):
     body = Column(String, nullable=False)
     created_at: int = Column(BigInteger, default=lambda: datetime.now(timezone.utc).timestamp())
 
+    post: Post = relationship(back_populates="comments")
+
 class Reaction(Base):
     __tablename__ = "reactions"
     # Ensure a combination of author_id x post_id is unique by marking the two fields as primary keys
@@ -51,10 +55,14 @@ class Reaction(Base):
     reaction = Column(String, CheckConstraint("reaction IN ('like', 'dislike')")) # prevent invalid values from being inserted into the database
     updated_at: int = Column(BigInteger, default=lambda: datetime.now(timezone.utc).timestamp())
 
+    author: User = relationship(back_populates="reactions")
+    post: Post = relationship(back_populates="reactions")
 
 class PostTopics(Base):
     __tablename__ = "post_topics"
     post_id: int = Column(Integer, ForeignKey("posts.id"), primary_key=True)
     topic_id: int = Column(Integer, ForeignKey("topics.id"), primary_key=True)
     created_at: int = Column(BigInteger, default=lambda: datetime.now(timezone.utc).timestamp())
-    
+
+    post: Post = relationship(back_populates="post_topics")
+    topic: Topic = relationship(back_populates="post_topics")

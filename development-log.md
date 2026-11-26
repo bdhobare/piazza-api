@@ -45,4 +45,12 @@
 ## Nov 25
 - Add most-liked endpoint
 - Remove the UserSimple class and use UserResponse directly. This is to reduce the data manipulation needed after query responses.
-- 
+
+
+## Nov 26
+- Enforce authentication on all endpoints except register, login and health
+- Remove profile endpoints
+- Add missing relationships and foreign keys
+- Fix GET /posts logic and add each post's comments in the response
+- Fix GET /posts/{post_id} logic to add the comments
+

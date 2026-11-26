@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 
 import models
 from database import engine, SessionLocal
-from routers import auth, posts, profile, topics
+from routers import auth, posts, topics
 from seed import seed_topics
 
 
@@ -26,7 +26,6 @@ def create_app(db_engine=engine):
     models.Base.metadata.create_all(bind=db_engine)
     app = FastAPI(lifespan=lifespan)
     app.include_router(auth.router, prefix="/auth")
-    app.include_router(profile.router, prefix="/profile")
     app.include_router(posts.router, prefix="/posts")
     app.include_router(topics.router, prefix="/topics")
 

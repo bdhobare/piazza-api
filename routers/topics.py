@@ -6,13 +6,13 @@ from sqlalchemy.orm import Session
 from sqlalchemy import select
 from datetime import datetime, timezone
 
+from security import get_current_user
 
 router = APIRouter()
 
 
-
 @router.get("/{topic}/most-active", response_model=list[schemas.PostResponse], status_code=200)
-def get_most_active_post(topic: str, db: Session = Depends(get_db)):
+def get_most_active_post(topic: str, _: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
     # Check if the topic exists
     topic_obj = db.scalar(
         select(models.Topic).where(models.Topic.name == topic)
@@ -24,7 +24,8 @@ def get_most_active_post(topic: str, db: Session = Depends(get_db)):
     post = db.scalars(
         select(models.Post)
         .join(models.PostTopics)
-        .where(models.PostTopics.topic_id == models.Topic.id)
+        .join(models.Topic)
+        .where(models.Topic.name == topic)
         .where(now_utc < models.Post.expires_at)  # Only consider live posts
         .order_by(
             (models.Post.like_count + models.Post.dislike_count).desc(),
