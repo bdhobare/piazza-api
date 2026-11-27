@@ -50,8 +50,8 @@ class PostResponse(BaseModel):
     created_at: AwareDatetime
     expires_at: AwareDatetime
     status: PostStatus
-    like_count: int = Field(min=0)
-    dislike_count: int = Field(min=0)
+    like_count: int = Field(ge=0)
+    dislike_count: int = Field(ge=0)
     comments: list[CommentResponse]
 
 class PostCreate(BaseModel):

@@ -65,3 +65,9 @@
 - Field(gt=datetime.now(...)), was being is evaluated once at import(server start time), fix it to be evaluated on every request
 
 
+## Nov 27
+- Add test auth endpoints - samples taken from Lecture 4 lab 
+- Minor fixes in schemas(likes_count and dislikes_count) to replace Field(min=0) as pydantic ignores it
+- fix warnings in httpx by upgrading to httpx2
+- Added .vscode config to run tests from vscode console, see https://code.visualstudio.com/docs/python/testing
+- Added explicit 200 status code in login
